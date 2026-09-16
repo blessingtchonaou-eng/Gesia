@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/app/generated/prisma
+# Local diagnostic / temporary test scripts
+test-ai-service.ts
+test-db-connection.ts
+test-migration.ts
+test-pg-connection.ts
+# Local AI/editor configuration
+.agents/
+.claude/
+.windsurf/
+/src/generated/prisma/

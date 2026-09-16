@@ -1,0 +1,123 @@
+// Schéma Prisma pour Gesia MVP
+// Configuration pour PostgreSQL avec Supabase
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum Plan {
+  FREE
+  PAID
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskStatus {
+  TODO
+  DONE
+  ARCHIVED
+}
+
+enum Category {
+  IMPORTANT
+  THIS_WEEK
+  PARKING
+  IDEA
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum AIActionType {
+  CAPTURE
+  CLASSIFY
+}
+
+// Models
+model User {
+  id                String    @id @default(uuid())
+  supabase_user_id  String    @unique
+  plan              Plan      @default(FREE)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  tasks             Task[]
+  subscriptions     Subscription[]
+  aiUsageLogs       AIUsageLog[]
+}
+
+model Task {
+  id                    String      @id @default(uuid())
+  user_id               String
+  title                 String
+  due_date              DateTime?
+  due_time              String?
+  priority              Priority?
+  priority_ia_proposed  Priority
+  category              Category?
+  category_ia_proposed  Category
+  estimated_duration_minutes Int?
+  status                TaskStatus  @default(TODO)
+  source_text           String
+  ai_extracted          Boolean     @default(false)
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @updatedAt
+
+  user                  User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
+  @@index([due_date])
+  @@index([category])
+}
+
+model Subscription {
+  id                        String              @id @default(uuid())
+  user_id                   String
+  plan                      Plan
+  status                    SubscriptionStatus @default(ACTIVE)
+  provider_subscription_id   String?
+  start_date                DateTime
+  end_date                  DateTime?
+  renewal_date              DateTime?
+  cancelled_at              DateTime?
+  is_current                Boolean             @default(true)
+  created_at                DateTime            @default(now())
+  updated_at                DateTime            @updatedAt
+
+  user                      User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
+  @@index([is_current])
+}
+
+model AIUsageLog {
+  id              String       @id @default(uuid())
+  user_id         String
+  action_type     AIActionType
+  tokens_input    Int?
+  tokens_output   Int?
+  estimated_cost  Decimal      @db.Decimal(10, 4)
+  model_used      String
+  success         Boolean      @default(true)
+  error_message   String?
+  created_at      DateTime     @default(now())
+
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
