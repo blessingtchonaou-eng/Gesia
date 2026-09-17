@@ -1,5 +1,6 @@
 import { createClient } from "../../../src/lib/supabase/server";
 import LogoutButton from "./logout-button";
+import TaskCapture from "./task-capture";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -39,6 +40,10 @@ export default async function DashboardPage() {
               ✓ Profil Gesia synchronisé avec succès
             </p>
           </div>
+        </div>
+
+        <div className="mt-8">
+          <TaskCapture />
         </div>
       </div>
     </div>
