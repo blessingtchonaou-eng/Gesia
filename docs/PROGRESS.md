@@ -2,9 +2,9 @@
 
 ## État actuel
 
-Phase : Architecture
+Phase : Capture rapide (backend)
 
-Étape actuelle : Mise en place de PostgreSQL + Prisma 7
+Étape actuelle : Backend de capture terminé (extraction IA + création de tâche). Reste l'interface utilisateur de capture.
 
 ---
 
@@ -18,27 +18,28 @@ Phase : Architecture
 - [x] Analyse du projet
 - [x] Architecture technique validée
 - [x] Documentation de l'architecture (docs/ARCHITECTURE.md)
+- [x] Configuration PostgreSQL (Supabase) + Prisma 7 avec adapter
+- [x] Configuration Supabase Auth avec @supabase/ssr (inscription/connexion/déconnexion, synchronisation User via ensureUserExists)
+- [x] Configuration OpenAI (Structured Outputs) — `src/lib/ai-service.ts`
+- [x] `POST /api/tasks/capture` — intégration de l'extraction IA (titre, date, heure, priorité et catégorie proposées) avec fallback `ai_failed` si l'IA échoue
+- [x] `POST /api/tasks` — création définitive d'une `Task`, en conservant à la fois les valeurs validées par l'utilisateur et les propositions IA d'origine (`priority_ia_proposed`, `category_ia_proposed`)
 
 ---
 
 ## EN COURS
 
-- [ ] Configuration PostgreSQL (Supabase)
-- [ ] Configuration Prisma 7 avec adapter
+- [ ] Interface de capture (formulaire de saisie + validation des propositions IA)
 
 ---
 
 ## À FAIRE
 
-- [ ] Configuration Supabase Auth avec @supabase/ssr
 - [ ] Validation 0fee.dev (abonnements récurrents SaaS)
-- [ ] Configuration OpenAI (Structured Outputs)
-- [ ] Authentification (inscription/connexion)
-- [ ] Capture rapide
 - [ ] Inbox
-- [ ] Priorisation
+- [ ] Priorisation ("Que dois-je faire maintenant ?")
 - [ ] Anti-backlog
 - [ ] Abonnement
+- [ ] Journalisation IA (AIUsageLog)
 - [ ] Tests
 - [ ] Déploiement
 
