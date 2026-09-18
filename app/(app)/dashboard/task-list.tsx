@@ -16,6 +16,7 @@ interface TaskItem {
   category: CategoryValue | null;
   estimated_duration_minutes: number | null;
   status: StatusValue;
+  is_overdue: boolean;
 }
 
 interface TaskListProps {
@@ -80,6 +81,7 @@ function isTaskItem(value: unknown): value is TaskItem {
   if (v.category !== null && !isCategoryValue(v.category)) return false;
   if (v.estimated_duration_minutes !== null && typeof v.estimated_duration_minutes !== "number") return false;
   if (!isStatusValue(v.status)) return false;
+  if (typeof v.is_overdue !== "boolean") return false;
   return true;
 }
 
@@ -257,6 +259,11 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
                     📅 {task.due_date ? formatDueDate(task.due_date) : ""}
                     {task.due_date && task.due_time ? " · " : ""}
                     {task.due_time ?? ""}
+                    {task.is_overdue && (
+                      <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        ⚠ En retard
+                      </span>
+                    )}
                   </p>
                 )}
 

@@ -1,6 +1,7 @@
 import { createClient } from "../../../src/lib/supabase/server";
 import { ensureUserExists } from "../../../src/lib/user-service";
 import { prisma } from "../../../src/lib/prisma";
+import { isTaskOverdue } from "../../../src/lib/task-date";
 
 const PRIORITIES = ["HIGH", "MEDIUM", "LOW"] as const;
 const CATEGORIES = ["IMPORTANT", "THIS_WEEK", "PARKING", "IDEA"] as const;
@@ -296,13 +297,25 @@ export async function GET() {
       },
     });
 
+    // is_overdue est calculé à la lecture (jamais stocké), avec un seul
+    // "maintenant" pour toute la liste.
+    const now = new Date();
+
     return Response.json(
       {
         success: true,
-        tasks: tasks.map((task) => ({
-          ...task,
-          due_date: task.due_date ? task.due_date.toISOString().split("T")[0] : null,
-        })),
+        tasks: tasks.map((task) => {
+          const dueDate = task.due_date ? task.due_date.toISOString().split("T")[0] : null;
+
+          return {
+            ...task,
+            due_date: dueDate,
+            is_overdue: isTaskOverdue(
+              { status: task.status, due_date: dueDate, due_time: task.due_time },
+              now
+            ),
+          };
+        }),
       },
       { status: 200 }
     );
