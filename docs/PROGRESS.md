@@ -2,9 +2,9 @@
 
 ## État actuel
 
-Phase : Capture rapide (backend)
+Phase : Capture rapide
 
-Étape actuelle : Backend de capture terminé (extraction IA + création de tâche). Reste l'interface utilisateur de capture.
+Étape actuelle : Parcours de capture complet (texte + vocal + validation + création) et lecture des tâches terminés côté backend et frontend. Reste l'affichage d'une liste/Inbox.
 
 ---
 
@@ -23,19 +23,21 @@ Phase : Capture rapide (backend)
 - [x] Configuration OpenAI (Structured Outputs) — `src/lib/ai-service.ts`
 - [x] `POST /api/tasks/capture` — intégration de l'extraction IA (titre, date, heure, priorité et catégorie proposées) avec fallback `ai_failed` si l'IA échoue
 - [x] `POST /api/tasks` — création définitive d'une `Task`, en conservant à la fois les valeurs validées par l'utilisateur et les propositions IA d'origine (`priority_ia_proposed`, `category_ia_proposed`)
+- [x] Interface de capture (`task-capture.tsx`, `task-proposal-form.tsx`, `use-speech-recognition.ts`) — saisie texte + vocale (SpeechRecognition native, `fr-FR`), validation/édition des propositions IA, confirmation et création de tâche depuis le dashboard
+- [x] `GET /api/tasks` — récupération des tâches de l'utilisateur authentifié, triées par échéance proche puis date de création, isolation par utilisateur vérifiée
 
 ---
 
 ## EN COURS
 
-- [ ] Interface de capture (formulaire de saisie + validation des propositions IA)
+- [ ] —
 
 ---
 
 ## À FAIRE
 
 - [ ] Validation 0fee.dev (abonnements récurrents SaaS)
-- [ ] Inbox
+- [ ] Inbox (affichage de la liste des tâches)
 - [ ] Priorisation ("Que dois-je faire maintenant ?")
 - [ ] Anti-backlog
 - [ ] Abonnement
