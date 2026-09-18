@@ -66,3 +66,60 @@ export function isTaskOverdue(task: OverdueCheckInput, now: Date = new Date()): 
   // correspond à l'ordre chronologique.
   return `${local.date}T${local.time}` > `${task.due_date}T${task.due_time}`;
 }
+
+/** Date du jour ("YYYY-MM-DD") dans APP_TIMEZONE. */
+export function getTodayInAppTimezone(now: Date = new Date()): string {
+  return getLocalDateAndTime(now).date;
+}
+
+/**
+ * Convention de stockage de `due_date` (identique à POST /api/tasks) : un
+ * jour "YYYY-MM-DD" est enregistré à minuit UTC. C'est le jour métier exact
+ * tant que APP_TIMEZONE est UTC+0 (Africa/Lome, sans heure d'été).
+ */
+export function dueDateToStoredValue(dueDate: string): Date {
+  return new Date(`${dueDate}T00:00:00.000Z`);
+}
+
+/** Vrai si `value` est une chaîne "YYYY-MM-DD" représentant un jour réel. */
+export function isValidCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+/** Vrai si `value` est une chaîne "HH:MM" au format 24h. */
+export function isValidTime(value: unknown): value is string {
+  return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+export type NewDeadlineCheck =
+  | { ok: true }
+  | { ok: false; reason: "PAST_DATE" | "PAST_TIME_TODAY" };
+
+/**
+ * Vérifie qu'une nouvelle échéance (report) n'est jamais immédiatement
+ * dépassée :
+ * - date antérieure à aujourd'hui : refusée ;
+ * - date future : acceptée ;
+ * - aujourd'hui sans heure : acceptée (échéance = fin de journée) ;
+ * - aujourd'hui avec heure : l'heure doit être strictement future (minute
+ *   courante exclue), sinon la tâche serait en retard dans la minute.
+ */
+export function checkNewDeadline(
+  dueDate: string,
+  dueTime: string | null,
+  now: Date = new Date()
+): NewDeadlineCheck {
+  const local = getLocalDateAndTime(now);
+
+  if (dueDate < local.date) return { ok: false, reason: "PAST_DATE" };
+  if (dueDate > local.date || !dueTime) return { ok: true };
+
+  return dueTime > local.time ? { ok: true } : { ok: false, reason: "PAST_TIME_TODAY" };
+}

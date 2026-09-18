@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import OverdueDecisionPanel from "./overdue-decision-panel";
 
 type PriorityValue = "HIGH" | "MEDIUM" | "LOW";
 type CategoryValue = "IMPORTANT" | "THIS_WEEK" | "PARKING" | "IDEA";
@@ -244,10 +245,8 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
             const isDone = task.status === "DONE";
 
             return (
-            <li
-              key={task.id}
-              className="border border-gray-200 rounded-md p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-            >
+            <li key={task.id} className="border border-gray-200 rounded-md p-4 flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <p className={isDone ? "font-medium text-gray-400 line-through" : "font-medium text-gray-900"}>
                   {isDone ? "✓ " : ""}
@@ -261,7 +260,7 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
                     {task.due_time ?? ""}
                     {task.is_overdue && (
                       <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                        ⚠ En retard
+                        Échéance dépassée
                       </span>
                     )}
                   </p>
@@ -300,6 +299,11 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
                   </button>
                 )}
               </div>
+              </div>
+
+              {task.status === "TODO" && task.is_overdue && (
+                <OverdueDecisionPanel taskId={task.id} onActionDone={() => onTaskUpdated?.()} />
+              )}
             </li>
             );
           })}
