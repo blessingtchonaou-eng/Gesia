@@ -12,14 +12,14 @@ import TaskList from "./task-list";
 export default function DashboardTasks() {
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleTaskCreated = useCallback(() => {
+  const handleTasksChanged = useCallback(() => {
     setRefreshKey((key) => key + 1);
   }, []);
 
   return (
     <div className="space-y-8">
-      <TaskCapture onTaskCreated={handleTaskCreated} />
-      <TaskList refreshKey={refreshKey} />
+      <TaskCapture onTaskCreated={handleTasksChanged} />
+      <TaskList refreshKey={refreshKey} onTaskUpdated={handleTasksChanged} />
     </div>
   );
 }

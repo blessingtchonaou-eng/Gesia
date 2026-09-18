@@ -20,6 +20,7 @@ interface TaskItem {
 
 interface TaskListProps {
   refreshKey?: number;
+  onTaskUpdated?: () => void;
 }
 
 const PRIORITY_LABELS: Record<PriorityValue, string> = {
@@ -94,6 +95,15 @@ function isTasksResponse(value: unknown): value is { success: true; tasks: TaskI
   return v.tasks.every(isTaskItem);
 }
 
+/** Vérification défensive de la réponse de PATCH /api/tasks/[id]. */
+function isPatchTaskResponse(value: unknown): value is { success: true; task: { status: StatusValue } } {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v.success !== true) return false;
+  if (typeof v.task !== "object" || v.task === null) return false;
+  return isStatusValue((v.task as Record<string, unknown>).status);
+}
+
 /**
  * Formate une date "YYYY-MM-DD" en date FR lisible sans passer par `new Date()`,
  * pour éviter tout décalage lié à la timezone du navigateur. Le projet utilise
@@ -108,10 +118,12 @@ function formatDueDate(dueDate: string): string {
   return monthName ? `${Number(day)} ${monthName} ${year}` : dueDate;
 }
 
-export default function TaskList({ refreshKey = 0 }: TaskListProps) {
+export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProps) {
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setError(null);
@@ -149,6 +161,45 @@ export default function TaskList({ refreshKey = 0 }: TaskListProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
+  const handleComplete = async (id: string) => {
+    if (completingId) return;
+
+    setCompletingId(id);
+    setCompletionError(null);
+
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DONE" }),
+      });
+
+      if (res.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      let json: unknown;
+      try {
+        json = await res.json();
+      } catch {
+        setCompletionError("Impossible de terminer la tâche. Réessaie.");
+        return;
+      }
+
+      if (!res.ok || !isPatchTaskResponse(json)) {
+        setCompletionError("Impossible de terminer la tâche. Réessaie.");
+        return;
+      }
+
+      onTaskUpdated?.();
+    } catch {
+      setCompletionError("Impossible de terminer la tâche. Réessaie.");
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Mes tâches</h2>
@@ -179,15 +230,27 @@ export default function TaskList({ refreshKey = 0 }: TaskListProps) {
         </div>
       )}
 
+      {completionError && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {completionError}
+        </div>
+      )}
+
       {tasks !== null && !error && tasks.length > 0 && (
         <ul className="space-y-3">
-          {tasks.map((task) => (
+          {tasks.map((task) => {
+            const isDone = task.status === "DONE";
+
+            return (
             <li
               key={task.id}
               className="border border-gray-200 rounded-md p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
             >
               <div>
-                <p className="font-medium text-gray-900">{task.title}</p>
+                <p className={isDone ? "font-medium text-gray-400 line-through" : "font-medium text-gray-900"}>
+                  {isDone ? "✓ " : ""}
+                  {task.title}
+                </p>
 
                 {(task.due_date || task.due_time) && (
                   <p className="text-sm text-gray-600 mt-1">
@@ -208,11 +271,31 @@ export default function TaskList({ refreshKey = 0 }: TaskListProps) {
                 )}
               </div>
 
-              <span className="self-start sm:self-center inline-block px-3 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                {STATUS_LABELS[task.status]}
-              </span>
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <span
+                  className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${
+                    isDone
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : "bg-blue-50 text-blue-700 border-blue-200"
+                  }`}
+                >
+                  {STATUS_LABELS[task.status]}
+                </span>
+
+                {task.status === "TODO" && (
+                  <button
+                    type="button"
+                    onClick={() => handleComplete(task.id)}
+                    disabled={completingId === task.id}
+                    className="px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {completingId === task.id ? "..." : "Terminer"}
+                  </button>
+                )}
+              </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
