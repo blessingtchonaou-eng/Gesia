@@ -245,3 +245,72 @@ export async function POST(request: Request) {
     );
   }
 }
+
+/**
+ * GET /api/tasks
+ *
+ * Récupère les tâches de l'utilisateur authentifié. Tri MVP simple :
+ * échéance la plus proche en premier, tâches sans due_date ensuite, et à
+ * égalité les plus récemment créées en premier. Pas de pagination, de
+ * filtre ni de tri configurable à ce stade.
+ */
+export async function GET() {
+  try {
+    // 1. Authentification — jamais de user_id fourni par le client
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return Response.json(
+        { success: false, error: "UNAUTHORIZED", message: "Session requise" },
+        { status: 401 }
+      );
+    }
+
+    // 2. Synchronisation de l'utilisateur Gesia — source du filtre, jamais le client
+    const gesiaUser = await ensureUserExists(user.id);
+
+    // 3. Sélection explicite des champs : ne jamais exposer user_id ou un
+    // champ interne non prévu au contrat de sortie.
+    const tasks = await prisma.task.findMany({
+      where: { user_id: gesiaUser.id },
+      orderBy: [{ due_date: { sort: "asc", nulls: "last" } }, { created_at: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        due_date: true,
+        due_time: true,
+        priority: true,
+        priority_ia_proposed: true,
+        category: true,
+        category_ia_proposed: true,
+        estimated_duration_minutes: true,
+        status: true,
+        source_text: true,
+        ai_extracted: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+
+    return Response.json(
+      {
+        success: true,
+        tasks: tasks.map((task) => ({
+          ...task,
+          due_date: task.due_date ? task.due_date.toISOString().split("T")[0] : null,
+        })),
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Erreur lors de la récupération des tâches:", error);
+    return Response.json(
+      { success: false, error: "INTERNAL_ERROR", message: "Erreur interne" },
+      { status: 500 }
+    );
+  }
+}
