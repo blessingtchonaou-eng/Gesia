@@ -1,6 +1,6 @@
 import { createClient } from "../../../src/lib/supabase/server";
 import LogoutButton from "./logout-button";
-import TaskCapture from "./task-capture";
+import DashboardTasks from "./dashboard-tasks";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mt-8">
-          <TaskCapture />
+          <DashboardTasks />
         </div>
       </div>
     </div>

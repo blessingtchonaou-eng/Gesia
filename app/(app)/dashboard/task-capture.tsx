@@ -71,7 +71,11 @@ function extractMessage(value: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function TaskCapture() {
+interface TaskCaptureProps {
+  onTaskCreated?: () => void;
+}
+
+export default function TaskCapture({ onTaskCreated }: TaskCaptureProps = {}) {
   const router = useRouter();
   const [captureText, setCaptureText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -159,6 +163,7 @@ export default function TaskCapture() {
     setProposal(null);
     setCaptureText("");
     setError(null);
+    onTaskCreated?.();
   };
 
   if (proposal) {
