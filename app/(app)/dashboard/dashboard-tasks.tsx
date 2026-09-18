@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import TaskCapture from "./task-capture";
+import NextTasks from "./next-tasks";
 import TaskList from "./task-list";
 
 /**
@@ -19,6 +20,7 @@ export default function DashboardTasks() {
   return (
     <div className="space-y-8">
       <TaskCapture onTaskCreated={handleTasksChanged} />
+      <NextTasks refreshKey={refreshKey} onTaskUpdated={handleTasksChanged} />
       <TaskList refreshKey={refreshKey} onTaskUpdated={handleTasksChanged} />
     </div>
   );
