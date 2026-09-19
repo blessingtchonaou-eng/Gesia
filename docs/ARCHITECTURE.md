@@ -368,13 +368,11 @@ OFEE_API_KEY=[0fee-api-key]
 OFEE_WEBHOOK_SECRET=[webhook-secret]
 PAID_PLAN_PRICE=9.99
 
-# Limites IA
-FREE_PLAN_AI_LIMITS=50
-PAID_PLAN_AI_LIMITS=500
-
 # Environnement
 NODE_ENV=development
 ```
+
+**Limites d'actions IA** : aucune variable d'environnement n'est utilisée. Les limites mensuelles par plan (`FREE` = 50, `PAID` = 500) sont définies directement dans le code (`AI_MONTHLY_LIMITS`, `src/lib/ai-usage.ts`). Les modifier demande un changement de code.
 
 ---
 
@@ -573,3 +571,4 @@ Avant de considérer cette architecture comme définitive, les points suivants n
 
 **Historique des modifications** :
 - 2026-09-10 : Version initiale, architecture validée avec réserve sur 0fee.dev
+- 2026-09-19 : Suppression de `FREE_PLAN_AI_LIMITS` / `PAID_PLAN_AI_LIMITS` : les limites d'actions IA sont définies dans le code, sans variable d'environnement

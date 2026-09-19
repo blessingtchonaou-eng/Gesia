@@ -43,6 +43,18 @@ Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
   - Archiver : `status = ARCHIVED`, aucun autre champ modifié
   - Supprimer : suppression définitive avec confirmation inline
 
+### Journalisation IA et limites d'actions IA
+- [x] Limite mensuelle d'actions IA par plan, lue depuis `User.plan` : `FREE` = 50, `PAID` = 500. Les valeurs sont définies dans le code (`AI_MONTHLY_LIMITS`, `src/lib/ai-usage.ts`), sans variable d'environnement
+- [x] Période mensuelle = mois civil dans `Africa/Lome` (du 1er 00:00 inclus au 1er du mois suivant exclu). Aucun cron, job de reset ni compteur stocké : l'usage est le nombre d'`AIUsageLog` du mois, donc le « reset » est automatique au changement de mois
+- [x] Réservation atomique avant l'appel OpenAI — `reserveAIAction` : transaction Prisma avec verrou `SELECT ... FOR NO KEY UPDATE` sur la ligne `User`, lecture du plan, comptage du mois, refus si `used >= limit`, sinon création d'un `AIUsageLog` (`CAPTURE`, `gpt-4o-mini`, `success = false`, `error_message = "PENDING"`, coût 0). Le verrou est relâché avant l'appel OpenAI. Protège contre les dépassements en cas de requêtes concurrentes
+- [x] Finalisation après l'appel — `finalizeAIUsage` : succès = `success = true`, `tokens_input`/`tokens_output` et `estimated_cost` (0,15 $ / 0,60 $ par million de tokens, `gpt-4o-mini` uniquement), `error_message = null` ; échec = `success = false` et code d'erreur sûr (`OPENAI_429_INSUFFICIENT_QUOTA`, `OPENAI_TIMEOUT`, `OPENAI_HTTP_<statut>`, `INVALID_RESPONSE`, `UNKNOWN`…), jamais le message brut d'OpenAI. Si les tokens sont indisponibles, `estimated_cost = 0` signifie « coût inconnu », pas « gratuit »
+- [x] Un appel OpenAI échoué compte comme UNE action Gesia, y compris quand le client OpenAI réessaie en interne (`maxRetries: 1`)
+- [x] `POST /api/tasks/capture` — flux : authentification (401) → validation (400) → `ensureUserExists` → `reserveAIAction` → quota atteint : `429` `AI_USAGE_LIMIT_REACHED` avec `usage: { used, limit }`, sans appel OpenAI ni fallback → appel OpenAI → `finalizeAIUsage` → réponse habituelle ou fallback `ai_failed`. Un `429` Gesia (quota mensuel du plan) est distinct d'un `429` OpenAI (quota fournisseur), qui donne le fallback `ai_failed: true` avec le log `OPENAI_429_INSUFFICIENT_QUOTA`. Les 401 et 400 ne créent aucun log
+- [x] Échec technique de la réservation ou de `ensureUserExists` : `500`, sans appel OpenAI. Échec de la finalisation après un appel réussi : la réponse de succès est conservée et la réservation `PENDING` reste (elle compte toujours)
+- [x] Les logs applicatifs d'erreur IA sont compacts (statut, code) : plus d'objet d'erreur OpenAI complet
+- [x] Aucune modification du schéma Prisma, aucune migration, aucune modification du frontend
+- [x] Validation : script de test ponctuel (non versionné) sur la vraie base, 34 vérifications réussies sur 34 — limites FREE/PAID, concurrence (49/50 × 2, 45/50 × 10), changement de mois, calcul du coût, 401/400, quota 429, erreur OpenAI avec fallback, succès OpenAI, absence de secrets dans les logs — avec nettoyage complet des données de test. OpenAI et Supabase Auth y étaient simulés
+
 ### Validation
 - [x] Tests fonctionnels manuels réalisés pour chaque fonctionnalité ci-dessus (cas nominaux, erreurs 400/401/404/409, isolation entre utilisateurs, double soumission, erreur réseau), avec nettoyage des données de test
 
@@ -60,8 +72,7 @@ Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
 - [ ] Inbox : vue dédiée / classification par catégorie (Important / Cette semaine / Parking / Idée). Une liste unique des tâches est déjà affichée
 - [ ] Priorisation (« Que dois-je faire maintenant ? »)
 - [ ] Anti-backlog : liste filtrable des tâches en retard (prévue au cahier des charges §4.4, reportée)
-- [ ] Abonnement (plan gratuit / payant, limites d'usage IA, paiement, gestion)
-- [ ] Journalisation IA (`AIUsageLog`) et limites d'actions IA
+- [ ] Abonnement (plan gratuit / payant, paiement, gestion). Les limites d'usage IA par plan sont déjà appliquées (voir « Journalisation IA et limites d'actions IA »)
 - [ ] Tests automatisés (aucun framework de test n'est installé à ce stade)
 - [ ] Déploiement (variables d'environnement, build production, base de production, monitoring)
 
@@ -79,6 +90,16 @@ Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
 - **Constat** : lors des derniers tests, le compte OpenAI renvoyait `429 insufficient_quota` (crédits épuisés)
 - **Conséquence** : le fallback `ai_failed: true` est validé, mais l'extraction IA réussie (`ai_failed: false`) n'a pas été vérifiée de bout en bout avec de vrais crédits
 - **Action requise** : recharger le compte puis valider l'extraction réelle (dates relatives, priorité, catégorie, durée)
+
+### Limites connues de la limitation IA
+- Seule l'action `CAPTURE` est journalisée et limitée ; `CLASSIFY` (présent dans l'enum) n'est pas implémenté
+- Une réservation dont la finalisation échoue (ou dont le processus plante) reste `PENDING` et compte dans le quota ; aucune purge ni réconciliation
+- `estimated_cost` est arrondi à 0,0001 $ par la colonne `Decimal(10,4)` (ex. 0,00045 $ stocké 0,0005 $) ; les tokens, stockés exacts, permettent de recalculer
+- Les tarifs (`gpt-4o-mini`) sont écrits en dur : à revalider si OpenAI les modifie ; aucun tarif pour les autres modèles (coût 0 = inconnu)
+- La conversion du mois en instants UTC suppose `Africa/Lome` en UTC+0 sans heure d'été (comme `due_date`) ; une timezone par utilisateur demandera de la revoir
+- Le chemin de succès OpenAI n'a été validé qu'avec OpenAI simulé, faute de crédits (voir réserve ci-dessus)
+- Aucune API ni interface n'expose encore l'usage restant à l'utilisateur ; l'endpoint `ai/usage` prévu dans l'architecture n'existe pas
+- Les limites sont modifiables uniquement par changement de code
 
 ### Timezone MVP fixe
 - **Statut** : `Africa/Lome` est écrite en dur (capture, contexte temporel de l'IA, calcul de `is_overdue`, actions anti-backlog)
