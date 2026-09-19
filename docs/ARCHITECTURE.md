@@ -394,7 +394,8 @@ NODE_ENV=development
 - due_date (optionnel)
 - due_time (optionnel)
 - status (todo/done/overdue/archived)
-- category (Important/Cette semaine/Parking/Idée)
+- category (Important/Cette semaine/Parking/Idée, ou `null` = « À classer ») : choix de l'utilisateur, modifiable uniquement pour une tâche `todo` via `PATCH /api/tasks/[id]/category` (aucun appel IA, aucun `AIUsageLog`)
+- category_ia_proposed : proposition IA d'origine, conservée séparément et jamais modifiée après création
 - created_at
 - source (texte brut original)
 

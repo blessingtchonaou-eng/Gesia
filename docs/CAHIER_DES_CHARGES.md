@@ -44,9 +44,12 @@ Le MVP doit prouver qu'on peut résoudre au moins les points 1, 2 et 5 — les p
 - Aucun champ obligatoire à remplir manuellement.
 
 ### 4.2 Inbox + tri automatique
-- Toute capture arrive dans une Inbox.
-- L'IA propose un classement (Important / Cette semaine / Parking / Idée).
-- L'utilisateur valide ou corrige — jamais de tri imposé sans validation.
+- Toute tâche créée arrive dans l'Inbox, organisée en cinq sections : À classer / Important / Cette semaine / Parking / Idée.
+- L'IA propose un classement (Important / Cette semaine / Parking / Idée) ; cette proposition est conservée séparément du choix de l'utilisateur.
+- L'utilisateur valide, corrige ou choisit « Classer plus tard » — jamais de tri imposé sans validation. Une tâche classée plus tard est créée sans catégorie et apparaît dans « À classer ».
+- Le classement reste modifiable ensuite depuis l'Inbox, pour les tâches à faire uniquement.
+- Si l'IA échoue, aucune catégorie n'est présélectionnée ni présentée comme une suggestion.
+- La catégorie n'influence pas la vue « Que dois-je faire maintenant ? ».
 
 ### 4.3 "Que dois-je faire maintenant ?"
 - Vue centrale de l'application.
@@ -111,7 +114,7 @@ Ces éléments restent dans la vision produit et pourront être réintroduits un
 Entités minimales nécessaires :
 
 - **User** : id, email, mot de passe/OAuth, plan (gratuit/payant), date de création.
-- **Task** : id, user_id, titre, date/heure (optionnel), statut (à faire / fait / en retard / archivé), catégorie (Important / Cette semaine / Parking / Idée), créée le, source (texte brut original).
+- **Task** : id, user_id, titre, date/heure (optionnel), statut (à faire / fait / en retard / archivé), catégorie choisie par l'utilisateur (Important / Cette semaine / Parking / Idée, ou vide = à classer), catégorie proposée par l'IA (conservée séparément), créée le, source (texte brut original).
 - **Subscription** : id, user_id, plan, statut (actif/expiré/annulé), date de renouvellement.
 - **AIUsageLog** (pour suivre le coût) : id, user_id, type d'action, date, coût estimé.
 

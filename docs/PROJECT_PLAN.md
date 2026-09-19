@@ -35,10 +35,10 @@
 
 ## Phase 5 — Inbox
 
-- [ ] Affichage des tâches
-- [ ] Classification
-- [ ] Validation
-- [ ] Correction
+- [x] Affichage des tâches
+- [x] Classification
+- [x] Validation
+- [x] Correction
 
 ## Phase 6 — "Que dois-je faire maintenant ?"
 

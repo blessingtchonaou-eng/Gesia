@@ -2,11 +2,11 @@
 
 ## État actuel
 
-Phase : Cœur de la gestion de tâches (capture, liste, terminer, retard, anti-backlog)
+Phase : Cœur de la gestion de tâches (capture, liste, terminer, retard, anti-backlog, Inbox par catégories)
 
-Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
+Dernier état validé : commit `7aff428` — `fix: prevent duplicate AI capture submissions`.
 
-Étape actuelle : Anti-backlog terminé (Faire aujourd'hui, Reporter, Archiver, Supprimer). Aucune étape en cours ; la prochaine est à définir (voir « À FAIRE »).
+Étape actuelle : Inbox / organisation par catégories terminée (commits `ca9a21b`, `a5ce21a`, `19e4c9a`, `707dc81`, `7aff428`). Aucune étape en cours ; la prochaine est à définir (voir « À FAIRE »).
 
 ---
 
@@ -43,6 +43,25 @@ Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
   - Archiver : `status = ARCHIVED`, aucun autre champ modifié
   - Supprimer : suppression définitive avec confirmation inline
 
+### Inbox et catégorisation
+Commits : `ca9a21b` (vues), `a5ce21a` (API), `19e4c9a` (changement de catégorie), `707dc81` (« Classer plus tard »), `7aff428` (double soumission « Analyser »).
+
+- [x] Inbox — `task-list.tsx` : cinq sections dans cet ordre : « À classer » (`category = null`), Important, Cette semaine, Parking, Idée. Compteur par section, message « Aucune tâche » pour une section vide. Regroupement côté client selon `Task.category` ; l'ordre reçu de `GET /api/tasks` est conservé dans chaque section (aucun tri supplémentaire). Interface responsive. Aucune catégorie n'influence la sélection de « Que dois-je faire maintenant ? » (`GET /api/tasks/next` ne renvoie la catégorie qu'à titre d'information)
+- [x] `category` peut rester `null` (« À classer plus tard »). Le formulaire de confirmation (`task-proposal-form.tsx`) propose « À classer plus tard » en plus des quatre catégories ; ce choix crée la tâche avec `category = null`
+- [x] `category` (choix réel de l'utilisateur) est indépendante de `category_ia_proposed` (proposition IA d'origine, conservée séparément et jamais modifiée après création)
+- [x] Suggestion IA — « Suggestion IA : <catégorie> » n'est affichée (formulaire de capture et Inbox, pour une tâche non classée) que si `ai_extracted = true`. En cas de fallback IA (`ai_failed`), aucune catégorie n'est présélectionnée et aucune suggestion n'est affichée : la valeur technique de repli (`THIS_WEEK`) n'est jamais présentée comme une suggestion IA. L'utilisateur garde le contrôle de la catégorie
+- [x] Changement de catégorie après création — `<select>` « Changer la catégorie » (hook `use-change-category.ts`), réservé aux tâches `TODO`. Les tâches `DONE` et `ARCHIVED` ne peuvent pas être reclassées. Rafraîchissement par le mécanisme existant (`onTaskUpdated`)
+- [x] `PATCH /api/tasks/[id]/category` — corps `{ category }` avec `IMPORTANT`, `THIS_WEEK`, `PARKING` ou `IDEA` :
+  - `401` non authentifié (avant tout accès à la base) ; `400` catégorie invalide ou corps invalide ; `404` tâche absente ou appartenant à un autre utilisateur ; `409` tâche `DONE` ou `ARCHIVED` ; `200` succès ; `500` erreur interne sans message brut
+  - Isolation par `id` + `user_id` ; mise à jour conditionnelle sur `status = TODO` ; même catégorie = `200` idempotent
+  - Ne modifie que `category` (et `updated_at`) : `category_ia_proposed`, `ai_extracted` et les autres champs ne changent jamais
+  - Aucun appel OpenAI et aucun `AIUsageLog` créé
+- [x] Robustesse :
+  - Protection contre les doubles soumissions synchrones (garde `useRef` posée avant le premier `await`, libérée dans `finally`, `isAnalyzing` / `isSubmitting` conservés pour l'affichage) sur le formulaire de création (`707dc81`) et sur « Analyser » (`7aff428`) : 3 clics synchrones sur « Analyser » = 1 seul appel `/api/tasks/capture` et 1 seul `AIUsageLog` (avant correction : 2 appels et 2 actions IA consommées)
+  - Erreurs réseau/API affichées par des messages français, sans exposer d'erreur technique brute (changement de catégorie : messages fixes par statut ; capture et création : message générique, sauf le message de validation du serveur pour un `400`)
+  - Après une erreur ou un succès, la garde est libérée et une nouvelle tentative est possible
+- [x] Validation : 100 vérifications d'API réussies (catégories, `null`, fallback IA, changement de catégorie, `DONE`/`ARCHIVED`, isolation entre utilisateurs, non-régression des routes `tasks`, `overdue-action`, `next`) ; `npx tsc --noEmit` sans erreur ; parcours Inbox complet validé dans le navigateur ; rendu vérifié à 375 px, 768 px et desktop sans débordement horizontal ; non-régression de « Terminer » et de l'anti-backlog ; aucune migration, aucune modification du schéma Prisma ; données de test nettoyées (`AIUsageLog` remis à 0)
+
 ### Journalisation IA et limites d'actions IA
 - [x] Limite mensuelle d'actions IA par plan, lue depuis `User.plan` : `FREE` = 50, `PAID` = 500. Les valeurs sont définies dans le code (`AI_MONTHLY_LIMITS`, `src/lib/ai-usage.ts`), sans variable d'environnement
 - [x] Période mensuelle = mois civil dans `Africa/Lome` (du 1er 00:00 inclus au 1er du mois suivant exclu). Aucun cron, job de reset ni compteur stocké : l'usage est le nombre d'`AIUsageLog` du mois, donc le « reset » est automatique au changement de mois
@@ -69,7 +88,6 @@ Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
 ## À FAIRE
 
 - [ ] Validation 0fee.dev (abonnements récurrents SaaS)
-- [ ] Inbox : vue dédiée / classification par catégorie (Important / Cette semaine / Parking / Idée). Une liste unique des tâches est déjà affichée
 - [ ] Priorisation (« Que dois-je faire maintenant ? »)
 - [ ] Anti-backlog : liste filtrable des tâches en retard (prévue au cahier des charges §4.4, reportée)
 - [ ] Abonnement (plan gratuit / payant, paiement, gestion). Les limites d'usage IA par plan sont déjà appliquées (voir « Journalisation IA et limites d'actions IA »)
@@ -109,10 +127,12 @@ Dernier état validé : commit `0cff646` — `feat: add overdue task actions`.
 - Les tâches `ARCHIVED` restent affichées dans la liste ; pas de désarchivage ni de retour `DONE → TODO`
 - La suppression (anti-backlog) est définitive : pas de suppression logique ni d'historique des reports
 - `is_overdue` est recalculé à la lecture : une tâche qui dépasse son échéance pendant que la page est ouverte n'est mise à jour qu'au prochain rafraîchissement (pas de polling)
-- Aucune modification d'une tâche existante (titre, date, priorité, catégorie) en dehors des actions ci-dessus
+- Aucune modification d'une tâche existante (titre, date, priorité) en dehors des actions ci-dessus ; seule la catégorie d'une tâche `TODO` peut être changée
+- Inbox : les tâches `DONE` et `ARCHIVED` restent affichées dans la section de leur catégorie (ou « À classer ») sans pouvoir être reclassées
+- L'extraction IA de la catégorie n'a été validée qu'en fallback (voir la réserve OpenAI) ; la suggestion IA affichée dans l'Inbox n'a donc été vérifiée qu'avec des données simulées
 
 ### Documentation à synchroniser
-- `docs/PROJECT_PLAN.md` et la section 13 de `docs/CAHIER_DES_CHARGES.md` ne sont pas à jour (aucune case cochée) ; `docs/PROGRESS.md` fait foi pour l'avancement
+- `docs/PROJECT_PLAN.md` (seule la Phase 5 — Inbox est cochée) et la section 13 de `docs/CAHIER_DES_CHARGES.md` ne sont pas à jour ; `docs/PROGRESS.md` fait foi pour l'avancement
 
 ---
 
