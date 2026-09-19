@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSpeechRecognition } from "./use-speech-recognition";
 import TaskProposalForm, {
@@ -81,6 +81,9 @@ export default function TaskCapture({ onTaskCreated }: TaskCaptureProps = {}) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<CaptureProposal | null>(null);
+  // Garde synchrone : `isAnalyzing` ne suffit pas si deux clics partent avant
+  // le prochain rendu, ce qui consommerait deux actions IA. Il ne sert qu'à l'affichage.
+  const analyzeGuardRef = useRef(false);
 
   const speech = useSpeechRecognition({
     onTranscript: (transcript) => {
@@ -91,13 +94,15 @@ export default function TaskCapture({ onTaskCreated }: TaskCaptureProps = {}) {
   });
 
   const handleAnalyze = async () => {
-    if (isAnalyzing) return;
+    if (analyzeGuardRef.current) return;
 
     if (captureText.length < MIN_TEXT_LENGTH || captureText.length > MAX_TEXT_LENGTH) {
       setError(`Le texte doit contenir entre ${MIN_TEXT_LENGTH} et ${MAX_TEXT_LENGTH} caractères.`);
       return;
     }
 
+    // Posée avant tout `await` : aucune autre analyse ne peut s'intercaler.
+    analyzeGuardRef.current = true;
     setIsAnalyzing(true);
     setError(null);
 
@@ -151,6 +156,7 @@ export default function TaskCapture({ onTaskCreated }: TaskCaptureProps = {}) {
     } catch {
       setError("Une erreur est survenue. Réessaie.");
     } finally {
+      analyzeGuardRef.current = false;
       setIsAnalyzing(false);
     }
   };
