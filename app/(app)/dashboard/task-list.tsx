@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import OverdueDecisionPanel from "./overdue-decision-panel";
 import { useCompleteTask } from "./use-complete-task";
 import {
+  CATEGORY_LABELS,
   PRIORITY_LABELS,
   formatDueDate,
   isStatusValue,
+  type CategoryValue,
   type PriorityValue,
   type StatusValue,
 } from "./task-format";
-
-type CategoryValue = "IMPORTANT" | "THIS_WEEK" | "PARKING" | "IDEA";
 
 interface TaskItem {
   id: string;
@@ -21,22 +21,48 @@ interface TaskItem {
   due_time: string | null;
   priority: PriorityValue | null;
   category: CategoryValue | null;
+  // Proposition IA d'origine : ne sert qu'à afficher une suggestion, jamais de catégorie choisie.
+  category_ia_proposed: CategoryValue;
+  ai_extracted: boolean;
   estimated_duration_minutes: number | null;
   status: StatusValue;
   is_overdue: boolean;
+}
+
+type InboxSectionKey = CategoryValue | "UNCLASSIFIED";
+
+// Ordre d'affichage de l'Inbox : « À classer » d'abord, puis les catégories
+// dans l'ordre de CATEGORY_LABELS.
+const INBOX_SECTIONS: { key: InboxSectionKey; label: string }[] = [
+  { key: "UNCLASSIFIED", label: "À classer" },
+  ...(Object.keys(CATEGORY_LABELS) as CategoryValue[]).map((key) => ({
+    key,
+    label: CATEGORY_LABELS[key],
+  })),
+];
+
+/**
+ * Répartit les tâches par section en conservant l'ordre reçu de
+ * GET /api/tasks (aucun tri supplémentaire). category === null → « À classer ».
+ */
+function groupTasksBySection(tasks: TaskItem[]): Record<InboxSectionKey, TaskItem[]> {
+  const groups: Record<InboxSectionKey, TaskItem[]> = {
+    UNCLASSIFIED: [],
+    IMPORTANT: [],
+    THIS_WEEK: [],
+    PARKING: [],
+    IDEA: [],
+  };
+  for (const task of tasks) {
+    groups[task.category ?? "UNCLASSIFIED"].push(task);
+  }
+  return groups;
 }
 
 interface TaskListProps {
   refreshKey?: number;
   onTaskUpdated?: () => void;
 }
-
-const CATEGORY_LABELS: Record<CategoryValue, string> = {
-  IMPORTANT: "Important",
-  THIS_WEEK: "Cette semaine",
-  PARKING: "Parking",
-  IDEA: "Idée",
-};
 
 const STATUS_LABELS: Record<StatusValue, string> = {
   TODO: "À faire",
@@ -61,6 +87,8 @@ function isTaskItem(value: unknown): value is TaskItem {
   if (v.due_time !== null && typeof v.due_time !== "string") return false;
   if (v.priority !== null && !isPriorityValue(v.priority)) return false;
   if (v.category !== null && !isCategoryValue(v.category)) return false;
+  if (!isCategoryValue(v.category_ia_proposed)) return false;
+  if (typeof v.ai_extracted !== "boolean") return false;
   if (v.estimated_duration_minutes !== null && typeof v.estimated_duration_minutes !== "number") return false;
   if (!isStatusValue(v.status)) return false;
   if (typeof v.is_overdue !== "boolean") return false;
@@ -121,6 +149,8 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
+  const groupedTasks = tasks ? groupTasksBySection(tasks) : null;
+
   return (
     <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Mes tâches</h2>
@@ -157,9 +187,22 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
         </div>
       )}
 
-      {tasks !== null && !error && tasks.length > 0 && (
+      {groupedTasks !== null && !error && tasks !== null && tasks.length > 0 && (
+        <div className="space-y-6">
+        {INBOX_SECTIONS.map((section) => {
+          const sectionTasks = groupedTasks[section.key];
+
+          return (
+        <section key={section.key} aria-labelledby={`inbox-section-${section.key}`}>
+          <h3 id={`inbox-section-${section.key}`} className="text-base font-semibold text-gray-800 mb-2">
+            {section.label} ({sectionTasks.length})
+          </h3>
+
+          {sectionTasks.length === 0 ? (
+            <p className="text-sm text-gray-500">Aucune tâche</p>
+          ) : (
         <ul className="space-y-3">
-          {tasks.map((task) => {
+          {sectionTasks.map((task) => {
             const isDone = task.status === "DONE";
 
             return (
@@ -186,9 +229,14 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
 
                 <p className="text-sm text-gray-600 mt-1">
                   Priorité : {task.priority ? PRIORITY_LABELS[task.priority] : "—"}
-                  {" · "}
-                  {task.category ? CATEGORY_LABELS[task.category] : "—"}
+                  {task.category ? ` · ${CATEGORY_LABELS[task.category]}` : ""}
                 </p>
+
+                {task.category === null && task.ai_extracted && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Suggestion IA : {CATEGORY_LABELS[task.category_ia_proposed]}
+                  </p>
+                )}
 
                 {task.estimated_duration_minutes !== null && (
                   <p className="text-sm text-gray-600 mt-1">⏱ {task.estimated_duration_minutes} min</p>
@@ -226,6 +274,11 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
             );
           })}
         </ul>
+          )}
+        </section>
+          );
+        })}
+        </div>
       )}
     </div>
   );

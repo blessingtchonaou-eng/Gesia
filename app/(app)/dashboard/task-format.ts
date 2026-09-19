@@ -5,11 +5,21 @@
 
 export type PriorityValue = "HIGH" | "MEDIUM" | "LOW";
 export type StatusValue = "TODO" | "DONE" | "ARCHIVED";
+// Doit rester aligné sur l'enum Prisma `Category`.
+export type CategoryValue = "IMPORTANT" | "THIS_WEEK" | "PARKING" | "IDEA";
 
 export const PRIORITY_LABELS: Record<PriorityValue, string> = {
   HIGH: "Haute",
   MEDIUM: "Moyenne",
   LOW: "Basse",
+};
+
+// L'ordre des clés est l'ordre d'affichage (options du formulaire).
+export const CATEGORY_LABELS: Record<CategoryValue, string> = {
+  IMPORTANT: "Important",
+  THIS_WEEK: "Cette semaine",
+  PARKING: "Parking",
+  IDEA: "Idée",
 };
 
 export function isStatusValue(value: unknown): value is StatusValue {

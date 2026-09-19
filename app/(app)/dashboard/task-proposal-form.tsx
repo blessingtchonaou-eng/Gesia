@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CATEGORY_LABELS, type CategoryValue } from "./task-format";
 
 export type PriorityValue = "HIGH" | "MEDIUM" | "LOW";
-export type CategoryValue = "IMPORTANT" | "THIS_WEEK" | "PARKING" | "IDEA";
+// Réexporté : task-capture.tsx importe ce type depuis ce module.
+export type { CategoryValue };
 
 export interface CaptureProposal {
   title: string;
@@ -31,13 +33,6 @@ const PRIORITY_LABELS: Record<PriorityValue, string> = {
   HIGH: "Haute",
   MEDIUM: "Moyenne",
   LOW: "Basse",
-};
-
-const CATEGORY_LABELS: Record<CategoryValue, string> = {
-  IMPORTANT: "Important",
-  THIS_WEEK: "Cette semaine",
-  PARKING: "Parking",
-  IDEA: "Idée",
 };
 
 // Doit rester cohérent avec le plafond appliqué côté API (POST /api/tasks).
