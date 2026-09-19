@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import OverdueDecisionPanel from "./overdue-decision-panel";
 import { useCompleteTask } from "./use-complete-task";
+import { useChangeCategory } from "./use-change-category";
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
@@ -112,6 +113,7 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
   const [tasks, setTasks] = useState<TaskItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { completingId, completionError, completeTask } = useCompleteTask(onTaskUpdated);
+  const { changingId, categoryError, changeCategory } = useChangeCategory(onTaskUpdated);
 
   const loadTasks = useCallback(async () => {
     setError(null);
@@ -187,6 +189,12 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
         </div>
       )}
 
+      {categoryError && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" role="alert">
+          {categoryError}
+        </div>
+      )}
+
       {groupedTasks !== null && !error && tasks !== null && tasks.length > 0 && (
         <div className="space-y-6">
         {INBOX_SECTIONS.map((section) => {
@@ -240,6 +248,32 @@ export default function TaskList({ refreshKey = 0, onTaskUpdated }: TaskListProp
 
                 {task.estimated_duration_minutes !== null && (
                   <p className="text-sm text-gray-600 mt-1">⏱ {task.estimated_duration_minutes} min</p>
+                )}
+
+                {task.status === "TODO" && (
+                  <div className="mt-2">
+                    <label htmlFor={`category-${task.id}`} className="block text-xs font-medium text-gray-600">
+                      Changer la catégorie
+                    </label>
+                    <select
+                      id={`category-${task.id}`}
+                      value={task.category ?? ""}
+                      onChange={(e) => changeCategory(task.id, e.target.value as CategoryValue)}
+                      disabled={changingId !== null}
+                      className="mt-1 block w-full sm:w-auto max-w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {task.category === null && (
+                        <option value="" disabled>
+                          À classer
+                        </option>
+                      )}
+                      {(Object.keys(CATEGORY_LABELS) as CategoryValue[]).map((value) => (
+                        <option key={value} value={value}>
+                          {CATEGORY_LABELS[value]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
 
