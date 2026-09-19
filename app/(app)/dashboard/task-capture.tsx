@@ -137,7 +137,9 @@ export default function TaskCapture({ onTaskCreated }: TaskCaptureProps = {}) {
         due_date: p.due_date,
         due_time: p.due_time,
         priority: p.priority_ia_proposed,
-        category: p.category_ia_proposed,
+        // Fallback IA : la valeur technique n'est pas une proposition, donc
+        // aucune catégorie présélectionnée (category_ia_proposed la conserve).
+        category: json.ai_failed ? null : p.category_ia_proposed,
         estimated_duration_minutes: p.estimated_duration_minutes,
         priority_ia_proposed: p.priority_ia_proposed,
         category_ia_proposed: p.category_ia_proposed,

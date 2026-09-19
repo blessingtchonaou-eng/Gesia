@@ -13,7 +13,9 @@ export interface CaptureProposal {
   due_date: string | null;
   due_time: string | null;
   priority: PriorityValue;
-  category: CategoryValue;
+  // Catégorie présélectionnée : null = « À classer plus tard » (aussi le cas
+  // quand l'IA a échoué : le fallback technique n'est jamais présélectionné).
+  category: CategoryValue | null;
   estimated_duration_minutes: number | null;
   priority_ia_proposed: PriorityValue;
   category_ia_proposed: CategoryValue;
@@ -70,7 +72,7 @@ export default function TaskProposalForm({ proposal, onBackToText, onCreated }: 
   const [dueDate, setDueDate] = useState(proposal.due_date ?? "");
   const [dueTime, setDueTime] = useState(proposal.due_time ?? "");
   const [priority, setPriority] = useState<PriorityValue>(proposal.priority);
-  const [category, setCategory] = useState<CategoryValue>(proposal.category);
+  const [category, setCategory] = useState<CategoryValue | null>(proposal.category);
   const [estimatedDuration, setEstimatedDuration] = useState(
     proposal.estimated_duration_minutes !== null ? String(proposal.estimated_duration_minutes) : ""
   );
@@ -80,6 +82,9 @@ export default function TaskProposalForm({ proposal, onBackToText, onCreated }: 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Garde synchrone : `isSubmitting` ne suffit pas si deux soumissions partent
+  // avant le prochain rendu. Il ne sert qu'à l'affichage du bouton.
+  const submitGuardRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -90,7 +95,7 @@ export default function TaskProposalForm({ proposal, onBackToText, onCreated }: 
   }, []);
 
   const handleConfirm = async () => {
-    if (isSubmitting) return;
+    if (submitGuardRef.current) return;
 
     if (title.trim().length < 1 || title.length > 500) {
       setError("Le titre doit contenir entre 1 et 500 caractères.");
@@ -108,6 +113,8 @@ export default function TaskProposalForm({ proposal, onBackToText, onCreated }: 
       durationValue = parsed;
     }
 
+    // Posée avant tout `await` : aucune autre soumission ne peut s'intercaler.
+    submitGuardRef.current = true;
     setIsSubmitting(true);
     setError(null);
 
@@ -161,6 +168,7 @@ export default function TaskProposalForm({ proposal, onBackToText, onCreated }: 
     } catch {
       setError("Une erreur est survenue. Réessaie.");
     } finally {
+      submitGuardRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -254,13 +262,20 @@ export default function TaskProposalForm({ proposal, onBackToText, onCreated }: 
             <label htmlFor="task-category" className="block text-sm font-medium text-gray-700">
               Catégorie
             </label>
+            {/* Réellement proposée par l'IA seulement : jamais pour le fallback technique. */}
+            {proposal.ai_extracted && (
+              <p className="text-xs text-gray-500">
+                Suggestion IA : {CATEGORY_LABELS[proposal.category_ia_proposed]}
+              </p>
+            )}
             <select
               id="task-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as CategoryValue)}
+              value={category ?? ""}
+              onChange={(e) => setCategory(e.target.value === "" ? null : (e.target.value as CategoryValue))}
               disabled={isSubmitting}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <option value="">À classer plus tard</option>
               {(Object.keys(CATEGORY_LABELS) as CategoryValue[]).map((value) => (
                 <option key={value} value={value}>
                   {CATEGORY_LABELS[value]}
